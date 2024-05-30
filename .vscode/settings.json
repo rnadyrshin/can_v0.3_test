@@ -1,0 +1,5 @@
+{
+"C_Cpp.intelliSenseEngine": "default",
+"idf.port": "/dev/cu.usbmodem101",
+"idf.adapterTargetName": "esp32s3"
+}
