@@ -8,12 +8,22 @@
 #include "hal/twai_types.h"
 #include "can.h"
 
-#define TWAI_TIMING_CONFIG    TWAI_TIMING_CONFIG_100KBITS
-#define SELF_TEST       false
-#define TX_PIN          38
-#define RX_PIN          39
+//#define TWAI_TIMING_CONFIG    TWAI_TIMING_CONFIG_1KBITS
+//#define TWAI_TIMING_CONFIG    TWAI_TIMING_CONFIG_5KBITS
+//#define TWAI_TIMING_CONFIG    TWAI_TIMING_CONFIG_10KBITS
+//#define TWAI_TIMING_CONFIG    TWAI_TIMING_CONFIG_25KBITS
+//#define TWAI_TIMING_CONFIG    TWAI_TIMING_CONFIG_50KBITS
+//#define TWAI_TIMING_CONFIG    TWAI_TIMING_CONFIG_100KBITS
+//#define TWAI_TIMING_CONFIG    TWAI_TIMING_CONFIG_125KBITS
+#define TWAI_TIMING_CONFIG    TWAI_TIMING_CONFIG_250KBITS
+//#define TWAI_TIMING_CONFIG    TWAI_TIMING_CONFIG_500KBITS
+//#define TWAI_TIMING_CONFIG    TWAI_TIMING_CONFIG_800KBITS
+//#define TWAI_TIMING_CONFIG    TWAI_TIMING_CONFIG_1MBITS
 
-static bool initialized = false;
+#define SELF_TEST       false
+#define TX_PIN          38 //47 //38
+#define RX_PIN          39 //21 //39
+
 static bool task_stopped = false;
 static bool need_to_stop_task = false;
 static TaskHandle_t task_handle = NULL;
@@ -23,13 +33,7 @@ void can_task(void *params);
 
 esp_err_t can_start() {
 	ESP_LOGI(TAG, "Start");
-/*
-	if (!initialized)
-	{
-		ESP_LOGE(TAG, "CAN not initialized");
-		return ESP_ERR_INVALID_STATE;
-	}
-*/
+
     can_stop();
     task_stopped = false;
     need_to_stop_task = false;
@@ -76,9 +80,13 @@ void can_reinit() {
     g_config.bus_off_io = -1;
     g_config.tx_queue_len = 5;
     g_config.rx_queue_len = 5;
-/*
-    g_config.alerts_enabled = TWAI_ALERT_TX_SUCCESS | TWAI_ALERT_TX_FAILED | // | TWAI_ALERT_BUS_ERROR; //TWAI_ALERT_NONE
+
+    //g_config.alerts_enabled = TWAI_ALERT_TX_SUCCESS | TWAI_ALERT_TX_FAILED | // | TWAI_ALERT_BUS_ERROR; //TWAI_ALERT_NONE
+    //TWAI_ALERT_BUS_RECOVERED | TWAI_ALERT_BUS_ERROR | TWAI_ALERT_ERR_PASS | TWAI_ALERT_BUS_OFF;
+
+    g_config.alerts_enabled = TWAI_ALERT_TX_FAILED | TWAI_ALERT_BUS_ERROR |
     TWAI_ALERT_BUS_RECOVERED | TWAI_ALERT_BUS_ERROR | TWAI_ALERT_ERR_PASS | TWAI_ALERT_BUS_OFF;
+/*
     g_config.clkout_divider = 0;
     g_config.intr_flags = (1<<1);// ESP_INTR_FLAG_LEVEL1;
 */
@@ -93,6 +101,7 @@ void can_send(uint32_t id, uint8_t* buff, uint8_t len) {
 	twai_message_t tx_msg;
     tx_msg.identifier = id;
     tx_msg.extd = 1;
+    tx_msg.rtr = 0;
 			
 #if (SELF_TEST)
 	tx_msg.self = 1;
@@ -141,13 +150,13 @@ void can_task(void *params) {
             uint8_t* buff = rx_msg.data;
             ESP_LOGI(TAG, "RX [ID %lu, len %d, body %02x %02x %02x %02x %02x %02x %02x %02x]", 
                 id, len, buff[0], buff[1], buff[2], buff[3], buff[4], buff[5], buff[6], buff[7]);
+            ESP_LOGW(TAG, "RX extd %d, rtr %d, body %02x", rx_msg.extd, rx_msg.rtr, buff[1]);
         }
 
         twai_status_info_t status;
         if (twai_get_status_info(&status) == ESP_OK)
         {
-			if (status.state == TWAI_STATE_BUS_OFF)
-			{
+			if (status.state == TWAI_STATE_BUS_OFF) {
 				ESP_LOGE(TAG, "Reinit"); 
 				can_reinit();
 			}
